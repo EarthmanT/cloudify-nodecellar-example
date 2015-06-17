@@ -1,0 +1,64 @@
+
+imports:
+  - http://www.getcloudify.org/spec/openstack-plugin/1.2/plugin.yaml
+
+node_types:
+
+  nodecellar.nodes.Server:
+    derived_from: cloudify.openstack.nodes.Server
+    properties:
+      aws_ec2_properties:
+        default: {}
+      cloudstack_properties:
+        default: {}
+      openstack_properties:
+        default: {}
+      softlayer_properties:
+        default: {}
+      server:
+        default:
+          image: { get_property: [ SELF, openstack_properties, server, image ] }
+          flavor: { get_property: [ SELF, openstack_properties, server, flavor ] }
+
+  nodecellar.nodes.SecurityGroup:
+    derived_from: cloudify.openstack.nodes.SecurityGroup
+    properties:
+      aws_ec2_properties:
+        default: {}
+      cloudstack_properties:
+        default: {}
+      openstack_properties:
+        default: {}
+      softlayer_properties:
+        default: {}
+      security_group:
+        default: { get_property: [ SELF, openstack_properties, security_group ] }
+      rules:
+        default: { get_property: [ SELF, openstack_properties, rules ] }
+
+  nodecellar.nodes.IP:
+    derived_from: cloudify.openstack.nodes.FloatingIP
+    properties:
+      vcloud_properties:
+        default: {}
+
+  nodecellar.nodes.Network:
+    derived_from: cloudify.nodes.Root
+    properties:
+      cloudstack_properties:
+        default: {}
+      resource_id:
+        default: {}
+      use_external_resource:
+        default: false
+
+relationships:
+
+  nodecellar.relationships.host_connected_to_security_group:
+    derived_from: cloudify.openstack.server_connected_to_security_group
+
+  nodecellar.relationships.host_connected_to_ip:
+    derived_from: cloudify.openstack.server_connected_to_floating_ip
+
+  nodecellar.relationships.ip_connected_to_network:
+    derived_from: cloudify.relationships.connected_to

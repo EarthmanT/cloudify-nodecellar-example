@@ -1,0 +1,68 @@
+
+imports:
+  - http://www.getcloudify.org/spec/cloudstack-plugin/1.2/plugin.yaml
+
+node_types:
+
+  nodecellar.nodes.Server:
+    derived_from: cloudify.cloudstack.nodes.VirtualMachine
+    properties:
+      aws_ec2_properties:
+        default: {}
+      cloudstack_properties:
+        default: {}
+      openstack_properties:
+        default: {}
+      softlayer_properties:
+        default: {}
+      management_network_name:
+        default: { get_property: [ SELF, cloudstack_properties, management_network_name ] }
+      server:
+        default: { get_property: [ SELF, cloudstack_properties, server ] }
+      network:
+        default: { get_property: [ SELF, cloudstack_properties, network ] }
+      portmaps:
+        default: { get_property: [ SELF, cloudstack_properties, portmaps ] }
+
+  nodecellar.nodes.SecurityGroup:
+    derived_from: cloudify.nodes.Root
+    properties:
+      aws_ec2_properties:
+        default: {}
+      cloudstack_properties:
+        default: {}
+      openstack_properties:
+        default: {}
+      softlayer_properties:
+        default: {}
+
+  nodecellar.nodes.IP:
+    derived_from: cloudify.cloudstack.nodes.FloatingIP
+    properties:
+      vcloud_properties:
+        default: {}
+
+  nodecellar.nodes.Network:
+    derived_from: cloudify.cloudstack.nodes.Network
+    properties:
+      cloudstack_properties:
+        default: {}
+      resource_id:
+        default: {}
+      use_external_resource:
+        default: false
+      network:
+        default: { get_property: [ SELF, cloudstack_properties, network ] }
+      firewall:
+        default: { get_property: [ SELF, cloudstack_properties, firewall ] }
+
+relationships:
+
+  nodecellar.relationships.host_connected_to_ip:
+    derived_from: cloudify.cloudstack.virtual_machine_connected_to_floating_ip
+
+  nodecellar.relationships.ip_connected_to_network:
+    derived_from: cloudify.cloudstack.floating_ip_connected_to_network
+
+  nodecellar.relationships.host_connected_to_security_group:
+    derived_from: cloudify.relationships.connected_to

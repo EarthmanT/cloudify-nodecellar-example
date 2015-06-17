@@ -1,0 +1,67 @@
+imports:
+  - http://www.getcloudify.org/spec/softlayer-plugin/1.2/plugin.yaml
+
+node_types:
+
+  nodecellar.nodes.Server:
+    derived_from: cloudify.softlayer.nodes.VirtualServer
+    properties:
+      aws_ec2_properties:
+        default: {}
+      cloudstack_properties:
+        default: {}
+      openstack_properties:
+        default: {}
+      softlayer_properties:
+        default: {}
+      location: 
+        default: { get_property: [ SELF, softlayer_properties, location ] }
+      domain: 
+        default: { get_property: [ SELF, softlayer_properties, domain ] }
+      ram:
+        default: { get_property: [ SELF, softlayer_properties, ram ] }
+      cpu: 
+        default: { get_property: [ SELF, softlayer_properties, cpu ] }
+      disk: 
+        default: { get_property: [ SELF, softlayer_properties, disk ] }
+      os: 
+        default: { get_property: [ SELF, softlayer_properties, os ] }
+
+  nodecellar.nodes.SecurityGroup:
+    derived_from: cloudify.nodes.Root
+    properties:
+      aws_ec2_properties:
+        default: {}
+      cloudstack_properties:
+        default: {}
+      openstack_properties:
+        default: {}
+      softlayer_properties:
+        default: {}
+
+  nodecellar.nodes.IP:
+    derived_from: cloudify.nodes.Root
+    properties:
+      vcloud_properties:
+        default: {}
+
+  nodecellar.nodes.Network:
+    derived_from: cloudify.nodes.Root
+    properties:
+      cloudstack_properties:
+        default: {}
+      resource_id:
+        default: {}
+      use_external_resource:
+        default: false
+
+relationships:
+
+  nodecellar.relationships.host_connected_to_security_group:
+    derived_from: cloudify.relationships.connected_to
+
+  nodecellar.relationships.host_connected_to_ip:
+    derived_from: cloudify.relationships.connected_to
+
+  nodecellar.relationships.ip_connected_to_network:
+    derived_from: cloudify.relationships.connected_to

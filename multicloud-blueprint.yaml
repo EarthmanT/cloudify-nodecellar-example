@@ -1,0 +1,369 @@
+tosca_definitions_version: cloudify_dsl_1_1
+###########################################################
+# This Blueprint installs the nodecellar application
+# on any cloud environment.**
+###########################################################
+
+imports:
+  - http://www.getcloudify.org/spec/cloudify/3.2/types.yaml
+  - http://www.getcloudify.org/spec/diamond-plugin/1.2/plugin.yaml
+  - types/nodecellar.yaml
+  - types/multicloud/aws-ec2-types.yaml
+  # - types/multicloud/openstack-types.yaml
+  # - types/multicloud/softlayer-types.yaml
+  # - types/multicloud/vcloud-types.yaml
+  # - types/multicloud/cloudstack-types.yaml
+
+node_templates:
+
+  mongod_host:
+    type: nodecellar.nodes.MonitoredServer
+    relationships:
+      - type: nodecellar.relationships.host_connected_to_security_group
+        target: mongod_security_group
+      - type: cloudify.relationships.connected_to
+        target: nodecellar_network
+      - type: cloudify.relationships.connected_to
+        target: management_network
+
+  nodejs_host:
+    type: nodecellar.nodes.MonitoredServer
+    properties:
+      cloudstack_properties:
+        management_network_name: { get_input: cloudstack_management_network_resource_id }
+        server:
+          image: { get_input: image }
+          flavor: { get_input: size }
+        network:
+          default_network: { get_input: cloudstack_nodecellar_network_resource_id }
+        portmaps:
+          - protocol: TCP
+            private_port: { get_input: nodecellar_port }
+            private_end_port: { get_input: nodecellar_port }
+            public_port: { get_input: nodecellar_port }
+            public_end_port: { get_input: nodecellar_port }
+            open_firewall: True
+          - protocol: TCP
+            private_port: 8081
+            private_end_port: 8081
+            public_port: 8081
+            public_end_port: 8081
+            open_firewall: False
+    relationships:
+      - type: nodecellar.relationships.host_connected_to_security_group
+        target: nodecellar_security_group
+      - type: nodecellar.relationships.host_connected_to_ip
+        target: nodecellar_ip
+      - type: cloudify.relationships.connected_to
+        target: nodecellar_network
+      - type: cloudify.relationships.connected_to
+        target: management_network
+
+  mongod_security_group:
+    type: nodecellar.nodes.SecurityGroup
+    properties:
+      aws_ec2_properties:
+        description: Security Group for Mongo VMs
+        rules:
+          - ip_protocol: tcp
+            from_port: { get_input: mongo_port }
+            to_port: { get_input: mongo_port }
+            cidr_ip: 0.0.0.0/0
+          - ip_protocol: tcp
+            from_port: 28017
+            to_port: 28017
+            cidr_ip: 0.0.0.0/0
+      openstack_properties:
+        security_group:
+          name: mongod_security_group
+        rules:
+          - remote_ip_prefix: 0.0.0.0/0
+            port: { get_input: mongo_port }
+          - remote_ip_prefix: 0.0.0.0/0
+            port: 28017
+
+  nodecellar_security_group:
+    type: nodecellar.nodes.SecurityGroup
+    properties:
+      aws_ec2_properties:
+        description: Security Group for Nodecellar VMs
+        rules:
+          - ip_protocol: tcp
+            from_port: { get_input: nodecellar_port }
+            to_port: { get_input: nodecellar_port }
+            cidr_ip: 0.0.0.0/0
+      openstack_properties:
+        security_group:
+          name: nodecellar_security_group
+        rules:
+          - remote_ip_prefix: 0.0.0.0/0
+            port: { get_input: nodecellar_port }
+
+  nodecellar_ip:
+    type: nodecellar.nodes.IP
+    properties:
+      vcloud_properties:
+        floatingip:
+          edge_gateway: { get_input: edge_gateway }
+    relationships:
+      - type: nodecellar.relationships.ip_connected_to_network
+        target: nodecellar_network
+
+  management_network:
+    type: nodecellar.nodes.Network
+    properties:
+      resource_id: { get_input: cloudstack_management_network_resource_id }
+      use_external_resource: True
+      cloudstack_properties:
+        network:
+          service_offering: { get_input: cloudstack_network_service_offering }
+          zone: { get_input: cloudstack_zone }
+        firewall: []
+
+  nodecellar_network:
+    type: nodecellar.nodes.Network
+    properties:
+      resource_id: { get_input: cloudstack_nodecellar_network_resource_id }
+      cloudstack_properties:
+        network:
+          service_offering: { get_input: cloudstack_network_service_offering }
+          zone: { get_input: cloudstack_zone }
+          gateway: 10.4.1.1
+          netmask: 255.255.255.0
+        firewall:
+          - type: ingress
+            protocol: TCP
+            cidr: 0.0.0.0/0
+            ports: [ { get_input: nodecellar_port } ]
+          - type: egress
+            protocol: TCP
+            cidr: 0.0.0.0/0
+            ports: [80, 443]
+
+#######################################################################
+#######################################################################
+#######################################################################
+#
+# Currently, the following cloud environments are
+# implemented in the anycloud blueprint:
+#
+#    * aws-ec2
+#    * openstack
+#
+#######################################################################
+#######################################################################
+#
+# Application Node templates
+#
+#######################################################################
+#######################################################################
+#######################################################################
+
+  mongod:
+    type: nodecellar.nodes.MongoDatabase
+    properties:
+      port: { get_input: mongo_port }
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        configure: scripts/mongo/install-pymongo.sh
+      cloudify.interfaces.monitoring:
+          start:
+            implementation: diamond.diamond_agent.tasks.add_collectors
+            inputs:
+              collectors_config:
+                MongoDBCollector:
+                  config:
+                    hosts: "localhost:27017"
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: mongod_host
+
+  nodejs:
+    type: nodecellar.nodes.NodeJSServer
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: nodejs_host
+
+  nodecellar:
+    type: nodecellar.nodes.NodecellarApplicationModule
+    properties:
+      port: { get_input: nodecellar_port }
+    relationships:
+      - type: node_connected_to_mongo
+        target: mongod
+      - type: node_contained_in_nodejs
+        target: nodejs
+
+node_types:
+
+  nodecellar.nodes.MonitoredServer:
+    derived_from: nodecellar.nodes.Server
+    properties:
+      cloudify_agent:
+        default:
+          user: { get_input: agent_user }
+      aws_ec2_properties:
+        default:
+          image_id: { get_input: image }
+          instance_type: { get_input: size }
+      openstack_properties:
+        default:
+          server:
+            image: { get_input: image }
+            flavor: { get_input: size }
+      softlayer_properties:
+        default:
+          location: { get_input: softlayer_location }
+          domain: { get_input: softlayer_domain }
+          ram: { get_input: softlayer_ram }
+          cpu: { get_input: softlayer_cpu }
+          disk: { get_input: softlayer_disk }
+          os: { get_input: softlayer_os }
+      vcloud_properties:
+        default:
+          server:
+            catalog: { get_input: vcloud_catalog }
+            template: { get_input: vcloud_template }
+            hardware:
+              cpu: { get_input: vcloud_server_cpu }
+              memory: { get_input: vcloud_server_memory }
+            guest_customization:
+              public_keys:
+                -
+                 key:  { get_input: vcloud_agent_public_key }
+                 user: { get_input: agent_user }
+      cloudstack_properties:
+        default:
+          management_network_name: { get_input: cloudstack_management_network_resource_id }
+          server:
+            image: { get_input: image }
+            flavor: { get_input: size }
+          network:
+            default_network: { get_input: cloudstack_nodecellar_network_resource_id }
+          portmaps: []
+    interfaces:
+      cloudify.interfaces.monitoring_agent:
+          install:
+            implementation: diamond.diamond_agent.tasks.install
+            inputs:
+              diamond_config:
+                default:
+                  interval: 1
+          start: diamond.diamond_agent.tasks.start
+          stop: diamond.diamond_agent.tasks.stop
+          uninstall: diamond.diamond_agent.tasks.uninstall
+      cloudify.interfaces.monitoring:
+          start:
+            implementation: diamond.diamond_agent.tasks.add_collectors
+            inputs:
+              collectors_config:
+                default:
+                  CPUCollector: {}
+                  MemoryCollector: {}
+                  LoadAverageCollector: {}
+                  DiskUsageCollector:
+                    config:
+                      devices: x?vd[a-z]+[0-9]*$
+                  NetworkCollector: {}
+
+inputs:
+
+# Generally Used
+
+  agent_user:
+    description: >
+      The default user on your chosen OS/image.
+
+  image:
+    type: string
+
+  size:
+    type: string
+
+  mongo_port:
+    default: 27017
+
+  nodecellar_port:
+    default: 8080
+
+# Softlayer Inputs
+
+  softlayer_location: 
+    description: >
+      Location of the data center
+      Default value is the location id of Hong kong 2
+    default: 352494
+
+  softlayer_domain: 
+    description: The domain
+    default: cloudify.org
+
+  softlayer_ram: 
+    description: >
+      Item id of the ram
+      Default value is the item id of 16 GB
+    default: 1017
+
+  softlayer_cpu: 
+    description: >
+      Item id of the cpu
+      Default value is the item id of 4 x 2.0 GHz Cores
+    default: 859
+
+  softlayer_disk: 
+    description: >
+      Item id of the disk
+      Default value is the item id of 25 GB (SAN)
+    default: 1178
+
+  softlayer_os: 
+    description: >
+      Item id of the operating system
+      Default value is the item id of Ubuntu Linux 12.04 
+    default: 4174
+
+# vCloud Inputs:
+
+  vcloud_catalog:
+    type: string
+
+  vcloud_template:
+    type: string
+
+  vcloud_server_cpu:
+    default: 2
+    description: >
+      cpu count for each server
+
+  vcloud_server_memory:
+    default: 4096
+    description: >
+      memory amount for each server
+
+  vcloud_agent_public_key:
+    type: string
+
+  edge_gateway:
+    default: gateway
+    description: >
+      For 'ondemand' service type, the value of edge_gateway
+      is always 'gateway'
+
+# Cloudstack Inputs:
+
+  cloudstack_zone:
+    description: >
+      The CloudStack zone the application will be installed in
+
+  cloudstack_network_service_offering:
+    description: >
+      The CloudStack serviceoffering of the application network created by the blueprint
+
+  cloudstack_management_network_resource_id:
+    description: >
+      The name of the cloudify management network created during the manager bootstrap process
+
+  cloudstack_nodecellar_network_resource_id:
+    description: >
+      The name of the dedicated application network to be created.
+    default: nodecellar_network

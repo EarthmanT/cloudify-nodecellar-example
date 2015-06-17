@@ -1,0 +1,63 @@
+
+imports:
+  - https://raw.githubusercontent.com/cloudify-cosmo/tosca-vcloud-plugin/master/plugin.yaml
+
+node_types:
+
+  nodecellar.nodes.Server:
+    derived_from: cloudify.vcloud.nodes.Server
+    properties:
+      aws_ec2_properties:
+        default: {}
+      cloudstack_properties:
+        default: {}
+      openstack_properties:
+        default: {}
+      softlayer_properties:
+        default: {}
+      vcloud_properties:
+        default: {}
+      server:
+        default: { get_property: [ SELF, vcloud_properties, server ] }
+
+  nodecellar.nodes.SecurityGroup:
+    derived_from: cloudify.nodes.Root
+    properties:
+      aws_ec2_properties:
+        default: {}
+      cloudstack_properties:
+        default: {}
+      openstack_properties:
+        default: {}
+      softlayer_properties:
+        default: {}
+
+  nodecellar.nodes.IP:
+    derived_from: cloudify.vcloud.nodes.FloatingIP
+    properties:
+      vcloud_properties:
+        default: {}
+      floatingip:
+        default:
+          edge_gateway: { get_property: [ SELF, vcloud_properties, floatingip, edge_gateway ] }
+
+  nodecellar.nodes.Network:
+    derived_from: cloudify.nodes.Root
+    properties:
+      cloudstack_properties:
+        default: {}
+      resource_id:
+        default: {}
+      use_external_resource:
+        default: false
+
+relationships:
+
+  nodecellar.relationships.host_connected_to_security_group:
+    derived_from: cloudify.relationships.connected_to
+
+  nodecellar.relationships.host_connected_to_ip:
+    derived_from: cloudify.relationships.connected_to
+
+  nodecellar.relationships.ip_connected_to_network:
+    derived_from: cloudify.relationships.connected_to

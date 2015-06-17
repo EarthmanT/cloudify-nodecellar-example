@@ -1,0 +1,64 @@
+
+imports:
+  - http://www.getcloudify.org/spec/aws-plugin/1.2/plugin.yaml
+
+node_types:
+
+  nodecellar.nodes.Server:
+    derived_from: cloudify.aws.nodes.Instance
+    properties:
+      aws_ec2_properties:
+        default: {}
+      cloudstack_properties:
+        default: {}
+      openstack_properties:
+        default: {}
+      softlayer_properties:
+        default: {}
+      image_id:
+        default: { get_property: [ SELF, aws_ec2_properties, image_id ] }
+      instance_type:
+        default: { get_property: [ SELF, aws_ec2_properties, instance_type ] }
+
+  nodecellar.nodes.SecurityGroup:
+    derived_from: cloudify.aws.nodes.SecurityGroup
+    properties:
+      aws_ec2_properties:
+        default: {}
+      cloudstack_properties:
+        default: {}
+      openstack_properties:
+        default: {}
+      softlayer_properties:
+        default: {}
+      description:
+        default: { get_property: [ SELF, aws_ec2_properties, description ] }
+      rules:
+        default: { get_property: [ SELF, aws_ec2_properties, rules ] }
+
+  nodecellar.nodes.IP:
+    derived_from: cloudify.aws.nodes.ElasticIP
+    properties:
+      vcloud_properties:
+        default: {}
+
+  nodecellar.nodes.Network:
+    derived_from: cloudify.nodes.Root
+    properties:
+      cloudstack_properties:
+        default: {}
+      resource_id:
+        default: {}
+      use_external_resource:
+        default: false
+
+relationships:
+
+  nodecellar.relationships.host_connected_to_security_group:
+    derived_from: cloudify.aws.relationships.instance_connected_to_security_group
+
+  nodecellar.relationships.host_connected_to_ip:
+    derived_from: cloudify.aws.relationships.instance_connected_to_elastic_ip
+
+  nodecellar.relationships.ip_connected_to_network:
+    derived_from: cloudify.relationships.connected_to
