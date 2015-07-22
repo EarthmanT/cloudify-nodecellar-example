@@ -42,6 +42,7 @@ node_templates:
   host:
     type: cloudify.nodes.Compute
     properties:
+      install_agent: false
       ip: { get_input: host_ip }
       cloudify_agent:
         user: { get_input: agent_user }
