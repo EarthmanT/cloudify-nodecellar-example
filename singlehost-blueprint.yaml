@@ -7,7 +7,7 @@ tosca_definitions_version: cloudify_dsl_1_0
 
 imports:  
   - http://www.getcloudify.org/spec/cloudify/3.2/types.yaml
-  - http://www.getcloudify.org/spec/diamond-plugin/1.2/plugin.yaml
+  # - http://www.getcloudify.org/spec/diamond-plugin/1.2/plugin.yaml
   - types/nodecellar.yaml
 
 ###########################################################
@@ -46,42 +46,42 @@ node_templates:
       cloudify_agent:
         user: { get_input: agent_user }
         key: { get_input: agent_private_key_path }
-    interfaces:
+    # interfaces:
 
-      ###########################################################
-      # We are infact telling cloudify to install a diamond
-      # monitoring agent on the server.
-      #
-      # (see https://github.com/BrightcoveOS/Diamond)
-      ###########################################################
+    #   ###########################################################
+    #   # We are infact telling cloudify to install a diamond
+    #   # monitoring agent on the server.
+    #   #
+    #   # (see https://github.com/BrightcoveOS/Diamond)
+    #   ###########################################################
 
-      cloudify.interfaces.monitoring_agent:
-          install:
-            implementation: diamond.diamond_agent.tasks.install
-            inputs:
-              diamond_config:
-                interval: 1
-          start: diamond.diamond_agent.tasks.start
-          stop: diamond.diamond_agent.tasks.stop
-          uninstall: diamond.diamond_agent.tasks.uninstall
+    #   cloudify.interfaces.monitoring_agent:
+    #       install:
+    #         implementation: diamond.diamond_agent.tasks.install
+    #         inputs:
+    #           diamond_config:
+    #             interval: 1
+    #       start: diamond.diamond_agent.tasks.start
+    #       stop: diamond.diamond_agent.tasks.stop
+    #       uninstall: diamond.diamond_agent.tasks.uninstall
 
-      ###########################################################
-      # Adding some collectors. These collectors are necessary
-      # for the Cloudify UI to display the deafult metrics.
-      ###########################################################
+    #   ###########################################################
+    #   # Adding some collectors. These collectors are necessary
+    #   # for the Cloudify UI to display the deafult metrics.
+    #   ###########################################################
 
-      cloudify.interfaces.monitoring:
-          start:
-            implementation: diamond.diamond_agent.tasks.add_collectors
-            inputs:
-              collectors_config:
-                CPUCollector: {}
-                MemoryCollector: {}
-                LoadAverageCollector: {}
-                DiskUsageCollector:
-                  config:
-                    devices: x?vd[a-z]+[0-9]*$
-                NetworkCollector: {}
+    #   cloudify.interfaces.monitoring:
+    #       start:
+    #         implementation: diamond.diamond_agent.tasks.add_collectors
+    #         inputs:
+    #           collectors_config:
+    #             CPUCollector: {}
+    #             MemoryCollector: {}
+    #             LoadAverageCollector: {}
+    #             DiskUsageCollector:
+    #               config:
+    #                 devices: x?vd[a-z]+[0-9]*$
+    #             NetworkCollector: {}
 
   mongod:
     type: nodecellar.nodes.MongoDatabase
@@ -103,14 +103,14 @@ node_templates:
       # to collect data on the MongoDB.
       ###########################################################
 
-      cloudify.interfaces.monitoring:
-          start:
-            implementation: diamond.diamond_agent.tasks.add_collectors
-            inputs:
-              collectors_config:
-                MongoDBCollector:
-                  config:
-                    hosts: "localhost:27017"
+      # cloudify.interfaces.monitoring:
+      #     start:
+      #       implementation: diamond.diamond_agent.tasks.add_collectors
+      #       inputs:
+      #         collectors_config:
+      #           MongoDBCollector:
+      #             config:
+      #               hosts: "localhost:27017"
     relationships:
       - type: cloudify.relationships.contained_in
         target: host
